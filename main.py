@@ -25,15 +25,17 @@ def select_folder():
         if file.endswith(".mp3"):
             files_path.append(f"{folder_path}/{file}")
 
-    GUI.update_label(GUI.folder_info, f'Cartella: {folder_path}')
-    GUI.update_label(GUI.files_info, f'File audio (.mp3) trovati: {len(files_path)}')   
-    GUI.clear_console_output()
-    GUI.update_button(GUI.start_transcribe_button, tk.NORMAL)
+    UI.update_label(UI.folder_info, f'Cartella: {folder_path}')
+    UI.update_label(UI.files_info, f'File audio (.mp3) trovati: {len(files_path)}')   
+    UI.clear_console_output()
+
+    if len(files_path) > 0:
+        UI.update_button(UI.start_transcribe_button, tk.NORMAL)
 
 def transcribe():
-    GUI.update_console_output("Inizializzazione del modello in corso...\n")
+    UI.update_console_output("Inizializzazione del modello in corso...\n")
     model = WhisperModel('large-v3', device="cpu", compute_type="int8")
-    GUI.update_console_output("Inizializzazione completata.\n\n")
+    UI.update_console_output("Inizializzazione completata.\n\n")
 
     s2t_folder = f"{folder_path}/S2T"
     
@@ -43,50 +45,52 @@ def transcribe():
     for file_path in files_path:
         file_name = file_path.split("/")[-1].replace(".mp3", ".txt")
 
-        GUI.update_console_output(f"File: {file_path}\n")
+        UI.update_console_output(f"File: {file_path}\n")
 
         segments, info = model.transcribe(file_path, beam_size=5)
         
-        GUI.update_console_output(f"Lingua: {info.language.upper()} ({info.language_probability}%)\n")
+        UI.update_console_output(f"Lingua: {info.language.upper()} ({info.language_probability}%)\n")
             
         with open(f"{s2t_folder}/{file_name}", "w") as f:
             for segment in segments:
                 f.write(segment.text.strip() + "\n")
                 f.flush()
 
-                GUI.update_console_output(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}\n")
+                UI.update_console_output(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}\n")
 
-        GUI.update_console_output("\n")
+        UI.update_console_output("\n")
 
-    GUI.update_label(GUI.folder_info, "Trascrizione completata!")
-    GUI.update_label(GUI.files_info, f'File audio trascritti: {len(files_path)}')
-    GUI.update_console_output("Trascrizione completata.")
-    GUI.update_button(GUI.select_folder_button, tk.NORMAL)
-    GUI.update_button(GUI.stop_transcribe_button, tk.DISABLED)
+    UI.update_label(UI.folder_info, "Trascrizione completata!")
+    UI.update_label(UI.files_info, f'File audio trascritti: {len(files_path)}')
+    UI.update_console_output("Trascrizione completata.")
+    UI.update_button(UI.select_folder_button, tk.NORMAL)
+    UI.update_button(UI.stop_transcribe_button, tk.DISABLED)
 
 def start_transcribe_thread():
     global transcribe_thread
     transcribe_thread = threading.Thread(target=transcribe, daemon=True)
     transcribe_thread.start()
 
-    GUI.update_console_output("Transcrizione avviata.\n")
-    GUI.update_button(GUI.select_folder_button, tk.DISABLED)
-    GUI.update_button(GUI.start_transcribe_button, tk.DISABLED)
-    GUI.update_button(GUI.stop_transcribe_button, tk.NORMAL)
+    UI.update_console_output("Transcrizione avviata.\n")
+    UI.update_button(UI.select_folder_button, tk.DISABLED)
+    UI.update_button(UI.start_transcribe_button, tk.DISABLED)
+    UI.update_button(UI.stop_transcribe_button, tk.NORMAL)
 
 def end_transcribe_thread():
     ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(transcribe_thread.ident), ctypes.py_object(SystemExit))
     transcribe_thread.join()
 
-    GUI.update_label(GUI.folder_info, '')
-    GUI.update_label(GUI.files_info, '')
-    GUI.update_console_output("Transcrizione interrotta.\n")
-    GUI.update_button(GUI.select_folder_button, tk.NORMAL)
-    GUI.update_button(GUI.stop_transcribe_button, tk.DISABLED)
+    UI.update_label(UI.folder_info, '')
+    UI.update_label(UI.files_info, '')
+    UI.update_console_output("Transcrizione interrotta.\n")
+    UI.update_button(UI.select_folder_button, tk.NORMAL)
+    UI.update_button(UI.stop_transcribe_button, tk.DISABLED)
 
 # GUI
 def main():
-    GUI(select_folder, start_transcribe_thread, end_transcribe_thread)
+    global UI
+    UI = GUI(select_folder, start_transcribe_thread, end_transcribe_thread)
+    UI.window.mainloop()
     
 if __name__ == "__main__":
     multiprocessing.freeze_support()
