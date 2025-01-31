@@ -22,11 +22,11 @@ def select_folder():
         return
     
     for file in os.listdir(folder_path):
-        if file.endswith(".mp3"):
+        if file.endswith(".mp3") or file.endswith(".wav") or file.endswith(".m4a"):
             files_path.append(f"{folder_path}/{file}")
 
     UI.update_label(UI.folder_info, f'Cartella: {folder_path}')
-    UI.update_label(UI.files_info, f'File audio (.mp3) trovati: {len(files_path)}')   
+    UI.update_label(UI.files_info, f'File audio trovati: {len(files_path)}')   
     UI.clear_console_output()
 
     if len(files_path) > 0:
@@ -34,7 +34,7 @@ def select_folder():
 
 def transcribe():
     UI.update_console_output("Inizializzazione del modello in corso...\n")
-    model = WhisperModel('large-v3', device="cpu", compute_type="int8")
+    model = WhisperModel('large-v3', device="cpu", compute_type="int8_float32")
     UI.update_console_output("Inizializzazione completata.\n\n")
 
     s2t_folder = f"{folder_path}/S2T"
@@ -43,7 +43,8 @@ def transcribe():
         os.mkdir(s2t_folder)
     
     for file_path in files_path:
-        file_name = file_path.split("/")[-1].replace(".mp3", ".txt")
+        file_name_with_ext = file_path.split("/")[-1]
+        file_name = file_name_with_ext.split(".")[0]
 
         UI.update_console_output(f"File: {file_path}\n")
 
@@ -51,7 +52,7 @@ def transcribe():
         
         UI.update_console_output(f"Lingua: {info.language.upper()} ({info.language_probability}%)\n")
             
-        with open(f"{s2t_folder}/{file_name}", "w") as f:
+        with open(f"{s2t_folder}/{file_name}.txt", "w") as f:
             for segment in segments:
                 f.write(segment.text.strip() + "\n")
                 f.flush()
