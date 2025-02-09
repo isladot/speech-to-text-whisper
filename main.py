@@ -1,5 +1,6 @@
 # OS
 import os
+import time
 # Threading
 import ctypes
 import threading
@@ -7,10 +8,12 @@ import multiprocessing
 # Tkinter
 import tkinter as tk
 from tkinter import filedialog
-# Whisper
-from faster_whisper import WhisperModel
+# PSUtil
+import psutil
 # GUI
 from gui import GUI
+# Transcription
+from transcription import TranscriptionService
 
 def select_folder():
     global folder_path
@@ -32,34 +35,15 @@ def select_folder():
     if len(files_path) > 0:
         UI.update_button(UI.start_transcribe_button, tk.NORMAL)
 
-def transcribe():
-    UI.update_console_output("Inizializzazione del modello in corso...\n")
-    model = WhisperModel('large-v3', device="cpu", compute_type="int8_float32")
-    UI.update_console_output("Inizializzazione completata.\n\n")
 
-    s2t_folder = f"{folder_path}/S2T"
-    
-    if not os.path.exists(s2t_folder):
-        os.mkdir(s2t_folder)
+def transcribe():
+    service = TranscriptionService(UI, folder_path)
     
     for file_path in files_path:
-        file_name_with_ext = file_path.split("/")[-1]
-        file_name = file_name_with_ext.split(".")[0]
+        service.transcribe(file_path)
 
-        UI.update_console_output(f"File: {file_path}\n")
-
-        segments, info = model.transcribe(file_path, beam_size=5)
-        
-        UI.update_console_output(f"Lingua: {info.language.upper()} ({info.language_probability}%)\n")
-            
-        with open(f"{s2t_folder}/{file_name}.txt", "w") as f:
-            for segment in segments:
-                f.write(segment.text.strip() + "\n")
-                f.flush()
-
-                UI.update_console_output(f"[{segment.start:.2f}s -> {segment.end:.2f}s] {segment.text}\n")
-
-        UI.update_console_output("\n")
+    os.system(f"rm -rf {folder_path}/chunks")    
+    os.system(f"open {folder_path}/S2T")
 
     UI.update_label(UI.folder_info, "Trascrizione completata!")
     UI.update_label(UI.files_info, f'File audio trascritti: {len(files_path)}')
@@ -87,10 +71,30 @@ def end_transcribe_thread():
     UI.update_button(UI.select_folder_button, tk.NORMAL)
     UI.update_button(UI.stop_transcribe_button, tk.DISABLED)
 
+def check_memory_usage():
+    while True:
+        memory = psutil.virtual_memory()
+        memory_usage = memory.used / (1024 ** 3)
+        memory_usage_percent = memory.percent
+        memory_available = memory.available / (1024 ** 3)
+        memory_total = memory.total / (1024 ** 3)
+
+        UI.update_label(UI.memory_info, f'Memoria Utilizzata: {memory_usage:.2f} GB ({memory_usage_percent}%), Disponibile: {memory_available:.2f} GB, Totale: {memory_total:.2f} GB')
+
+        time.sleep(1)
+
+def start_memory_thread():
+    global memory_thread
+    memory_thread = threading.Thread(target=check_memory_usage, daemon=True)
+    memory_thread.start()
+
 # GUI
 def main():
     global UI
     UI = GUI(select_folder, start_transcribe_thread, end_transcribe_thread)
+
+    start_memory_thread()
+
     UI.window.mainloop()
     
 if __name__ == "__main__":
